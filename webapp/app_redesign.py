@@ -1,0 +1,428 @@
+import dash
+from dash.dependencies import Input, Output, State
+import dash_core_components as dcc
+import dash_html_components as html
+#import dash_table_experiments as dt                                                                                                                                                           
+import dash_reusable_components as drc
+
+import math
+import datetime
+import json
+import pandas as pd
+import plotly
+import io
+import numpy as np
+from base64 import decodestring
+import base64
+import glob
+import os
+from PIL import Image, ImageFilter, ImageDraw, ImageEnhance
+from shoe_classifier import ShoeClassifier
+#IMAGE_STRING_PLACEHOLDER = drc.pil_to_b64(Image.open('image_test.jpg').copy(), enc_format='jpeg')
+cwd = os.getcwd()
+IMAGE_PIL_PLACEHOLDER = Image.open(cwd + '/image_test.jpg')
+
+
+#input_image_path = cwd +"/image_test.jpg"
+#cnn.find_top_matches(input_image_path)
+
+
+#from keras.applications.vgg19 import VGG19
+#from keras.models import Model
+#base_model = VGG19(weights='imagenet')
+#layer_name = 'fc2'
+#layer_model = Model(inputs=base_model.input, outputs=base_model.get_layer(layer_name).output)
+
+app = dash.Dash()
+
+#cnn = ShoeClassifier(subcategory='oxfords')
+cnn = ShoeClassifier(subcategory='no_sneakers')
+#cnn = ShoeClassifier(subcategory='frnt_no_sneakers')
+
+app.scripts.config.serve_locally = True
+
+app.layout = html.Div([
+        # Banner display
+        html.Div([
+            html.H2(
+                'Shoezam: a shoe recommendation app',
+                id='title'
+            )#,
+            #html.Img(
+            #    src="https://s3-us-west-1.amazonaws.com/plotly-tutorials/logo/new-branding/dash-logo-by-plotly-stripe-inverted.png"
+            #)
+        ],
+            className="banner"
+        ),
+        html.Div(className="container", children=[
+            html.Div(className='row', children=[
+                html.Div(className='five columns', children=[
+                        dcc.Upload(
+                            id='upload-image',
+                            children=html.Div([
+                                'Drag and Drop or ',
+                                html.A('Select an Image')
+                            ]),
+                            style={
+                                'width': '100%',
+                                'height': '50px',
+                                'lineHeight': '50px',
+                                'borderWidth': '1px',
+                                'borderStyle': 'dashed',
+                                'borderRadius': '5px',
+                                'textAlign': 'center'
+                            },
+                            #multiple=True
+                            #accept='image/*'
+                        ),
+                        #drc.NamedInlineRadioItems(
+                        #    name='Selection Mode',
+                        #    short='selection-mode',
+                        #    options=[
+                        #        {'label': ' Rectangular', 'value': 'select'},
+                        #        {'label': ' Lasso', 'value': 'lasso'}
+                        #    ],
+                        #    val='select'
+                        #),
+                        # The Interactive Image Div contains the dcc Graph
+                        # showing the image, as well as the hidden div storing
+                        # the true image
+                        #html.Div(id='output-image-upload',
+                        #    style={
+                        #        'width': '100%'}
+                        #),
+                        html.Div(id='output-image-upload', children=[
+                            drc.InteractiveImagePIL(
+                                        image_id='interactive-image',
+                                        #image=im_pil,
+                                        image=IMAGE_PIL_PLACEHOLDER,
+                                        #enc_format=enc_format,
+                                        display_mode='fixed',
+                                        #dragmode=dragmode,
+                                        #verbose=DEBUG
+                                ),
+
+
+                            #dcc.Graph(id='interactive-image', style={'height': '80vh'}),
+                            #html.Img(
+                            #    id='div-storage',
+                            #    src=contents
+                            #    #children=STORAGE_PLACEHOLDER,
+                            #    style={'display': 'none'}
+                            #)
+
+                        ]),
+                            
+
+                        dcc.Dropdown(
+                            id='dropdown-category',
+                            options=[{'label': 'Oxfords', 'value': 'Oxfords'},
+                                {'label': 'Boots', 'value': 'Boots'},
+                                {'label': 'Boat Shoes', 'value': 'Boat Shoes'},
+                                {'label': 'All Shoes', 'value': 'ALL'}
+                            ],
+                            value='ALL',
+                            clearable=False
+                        ),
+                        html.Button(
+                            'Search Cropped Selection',
+                            id='button-redo-search',
+                            style={'margin-right': '10px', 'margin-top': '5px'}
+                        ),
+                        html.Button(
+                            'Search Whole Image',
+                            id='button-undo',
+                            style={'margin-top': '5px'}
+                        ),
+                        ]
+                    ),
+                html.Div(
+                    className='seven columns',
+                    style={'float': 'right'},
+                    children=[
+                        html.Div(id='output-similar-items',style={'margin-right': '10px', 'margin-left': '10px','margin-top': '5px','display':'inline-block'})
+                    ]
+                )
+            ])
+        ]),
+    ])
+
+
+def generate_lasso_mask(image, selectedData):
+    """
+    Generates a polygon mask using the given lasso coordinates
+    :param selectedData: The raw coordinates selected from the data
+    :return: The polygon mask generated from the given coordinate
+    """
+
+    height = image.size[1]
+    y_coords = selectedData['lassoPoints']['y']
+    y_coords_corrected = [height - coord for coord in y_coords]
+
+    coordinates_tuple = list(zip(selectedData['lassoPoints']['x'], y_coords_corrected))
+    mask = Image.new('L', image.size)
+    draw = ImageDraw.Draw(mask)
+    draw.polygon(coordinates_tuple, fill=255)
+
+    return mask
+
+def parse_contents(contents):
+    return html.Div([
+
+        # HTML images accept base64 encoded strings in the same format                                                                                                                         
+        # that is supplied by the upload                                                                                                                                                       
+        html.Img(src=contents,style={'height':200}),
+        html.Hr()
+        #html.Div('Raw Content'),
+        #html.Pre(contents[:100] + '...', style={
+        #    'whiteSpace': 'pre-wrap',
+        #    'wordBreak': 'break-all'
+        #})
+    ],style={'height':320})
+
+def display_encoded_image_and_metadata(encoded_image,head,brand,name,price,sale,url):
+    width = 200
+    return html.Div([
+
+        html.H2(head,style={'height':'40px'}),
+        html.H5(name,style={'height':'80px'}),
+        html.H6(brand,style={'height':'60px'}),
+        html.P("MSRP: {}".format(price)),
+        html.Img(src='data:image/jpg;base64,{}'.format(encoded_image.decode()),style={'width':width}),
+        html.P("Sale: {}".format(sale)),
+        html.A(html.Button('BUY NOW'),href=url),
+        html.Hr()
+        ],style={'margin-right': '10px', 'margin-left': '10px','margin-top': '5px','display':'inline-block','width':width})
+
+def parse_interactive_image(im_pil):
+    return [drc.InteractiveImagePIL(
+            image_id='interactive-image',
+            image=im_pil,
+            #enc_format=enc_format,
+            display_mode='fixed',
+            #dragmode=dragmode,
+            #verbose=DEBUG
+        )]
+
+#@app.callback(Output('interactive-image', 'figure'),
+#              [Input('radio-selection-mode', 'value')],
+#              [State('interactive-image', 'figure')])
+#def update_selection_mode(selection_mode, figure):
+#    if figure:
+#        figure['layout']['dragmode'] = selection_mode
+#    return figure
+
+
+@app.callback(Output('output-image-upload', 'children'),
+              [Input('upload-image', 'contents')])
+def update_output(image_str):
+    if not image_str:
+        print("no image")
+        #return
+        im_pil = Image.open(cwd + '/image_test.jpg')
+    else:
+        print(image_str[0:100])
+        string = image_str.split(';base64,')[-1]
+        im_pil = drc.b64_to_pil(string.encode('ascii'))
+        #image = image_str.split(',')[1]
+        #data = decodestring(image.encode('ascii'))
+
+
+        ## good...
+        #data = decodestring(string.encode('ascii'))
+        #with open(cwd +"/image_test.jpg", "wb") as f:
+        #    f.write(data)
+
+    return parse_interactive_image(im_pil)
+
+
+@app.callback(Output('output-similar-items', 'children'),
+              [Input('button-undo','n_clicks_timestamp'),
+               Input('button-redo-search','n_clicks_timestamp')],
+              [State('interactive-image', 'selectedData'),
+               State('interactive-image','figure'),
+               State('dropdown-category','value')]
+              )
+def update_similar_items(undo_clicks,redo_clicks,selectedData,figure,category):
+    #if not image_str:
+    #    print("no images")
+    #    return
+    if (undo_clicks is None) and (redo_clicks is None):
+        print("undo_clicks: {}".format(undo_clicks))
+        print("redo_clicks: {}".format(redo_clicks))
+        print("redo_clicks: {}".format(category))
+        return
+    elif redo_clicks is None:# this means that whole image was selected
+        selectedData=None
+        print("\nundo_clicks: {}".format(undo_clicks))
+        print("redo_clicks: {}".format(redo_clicks))
+        print("selectedData: {}\n".format(selectedData))
+        print("redo_clicks: {}".format(category))
+    elif undo_clicks is None: # this means that cropped image was selected
+        print("\nundo_clicks: {}".format(undo_clicks))
+        print("redo_clicks: {}".format(redo_clicks))
+        print("selectedData: {}\n".format(selectedData))
+        print("redo_clicks: {}".format(category))
+    elif undo_clicks > redo_clicks:
+        selectedData=None
+        print("\nundo_clicks: {}".format(undo_clicks))
+        print("redo_clicks: {}".format(redo_clicks))
+        print("selectedData: {}\n".format(selectedData))
+        print("redo_clicks: {}".format(category))
+
+
+    #selectedData: {'range': {'y': [70.17453798767961, 513.4045174537987], 'x': [87.70071868583162, 963.6575975359342]}, 'points': []}
+    image_str =  figure['layout']['images'][0]['source']
+    print(image_str[0:100])
+    string = image_str.split(';base64,')[-1]
+    im_pil = drc.b64_to_pil(string.encode('ascii'))
+
+    white_bg = False
+    im_size = im_pil.size
+    if im_pil.mode != 'RGB':
+        im_pil = im_pil.convert('RGB')
+    # Select using rectangular box
+    if (selectedData is not None) and ('range' in selectedData):
+        selection_mode = 'select'
+        lower, upper = map(int, selectedData['range']['y'])
+        left, right = map(int, selectedData['range']['x'])
+        # Adjust height difference
+        height = im_size[1]
+        upper = height - upper
+        lower = height - lower
+        selection_zone = (left, upper, right, lower)
+        if white_bg:
+            # IF YOU WANT WHITE BACKGROUND *****************
+            # TO GET WHITE BACKGROUND
+            # MAYBE LASSO  WOULD BE GOOD
+            crop = im_pil.crop(selection_zone)
+            #gray = im_pil.convert('L')
+            imgarray = np.array(im_pil)
+            for i in range(imgarray.shape[0]):
+                for j in range(imgarray.shape[1]):
+                    imgarray[i][j] = (255,255,255)
+            im_pil = Image.fromarray(imgarray)
+            im_pil.paste(crop,selection_zone)
+            # IF YOU WANT WHITE BACKGROUND *****************
+    # Select using Lasso
+    elif selectedData and 'lassoPoints' in selectedData:
+        selection_mode = 'lasso'
+        im_filtered = im_pil.copy()
+        # IF YOU WANT WHITE BACKGROUND *****************
+        selection_zone = generate_lasso_mask(im_pil, selectedData)
+        imgarray = np.array(im_pil)
+        for i in range(imgarray.shape[0]):
+            for j in range(imgarray.shape[1]):
+                imgarray[i][j] = (255,255,255)
+        im_pil = Image.fromarray(imgarray)
+        #im_filtered = image.filter(filter_selected)
+        im_pil.paste(im_filtered, mask=selection_zone)
+        # IF YOU WANT WHITE BACKGROUND *****************
+    # Select the whole image
+    else:
+        selection_mode = 'select'
+        selection_zone = (0, 0) + im_size
+        # IF YOU WANT WHITE BACKGROUND *****************
+        # TO GET WHITE BACKGROUND
+        # MAYBE LASSO  WOULD BE GOOD
+        if white_bg:
+            crop = im_pil.crop(selection_zone)
+            #gray = im_pil.convert('L')
+            imgarray = np.array(im_pil)
+            for i in range(imgarray.shape[0]):
+                for j in range(imgarray.shape[1]):
+                    imgarray[i][j] = (255,255,255)
+            im_pil = Image.fromarray(imgarray)
+            # IF YOU WANT WHITE BACKGROUND *****************
+            im_pil.paste(crop,selection_zone)
+    print("selection_zone: {}".format(selection_zone))
+    #if im_pil.mode != 'RGB':
+    #    im_pil = im_pil.convert('RGB')
+
+    ## TO GET WHITE BACKGROUND
+    ## MAYBE LASSO  WOULD BE GOOD
+    #crop = im_pil.crop(selection_zone)
+    ##gray = im_pil.convert('L')
+    #imgarray = np.array(im_pil)
+    #for i in range(imgarray.shape[0]):
+    #    for j in range(imgarray.shape[1]):
+    #        imgarray[i][j] = (255,255,255)
+    #im_pil = Image.fromarray(imgarray)
+    #im_pil.paste(crop,selection_zone)
+
+
+    # Good 
+    if not white_bg:
+        im_pil = im_pil.crop(selection_zone)
+
+    """ DEBUG
+    # good
+    data = decodestring(string.encode('ascii'))
+    with open(cwd +"/image_test.jpg", "wb") as f:
+        f.write(data)
+
+    # fine but don't want to dl images off internet
+    input_image_path = cwd +"/image_test.jpg"
+    print('input_image_path = {}'.format(input_image_path))
+    """
+
+    # debugging
+    im_pil.save(cwd + "/image_crop.jpg")
+
+    #global cnn
+    #top_match, frugal_match, premium_match = cnn.find_top_matches_by_path(input_image_path)
+    #top_match, frugal_match, premium_match = cnn.find_top_matches_by_PIL_image(im_pil)
+    top_match, frugal_match, premium_match = cnn.find_top_matches_by_PIL_image(im_pil,category)
+    similar_image_paths = [top_match['image_path'], frugal_match['image_path'],premium_match['image_path']]
+    names = [top_match['name'], frugal_match['name'],premium_match['name']]
+    brands = [top_match['brand'], frugal_match['brand'],premium_match['brand']]
+    urls = [top_match['url'], frugal_match['url'],premium_match['url']]
+    prices = [top_match['msrp'], frugal_match['msrp'],premium_match['msrp']]
+    sales = []
+    for salep in [top_match['sale'], frugal_match['sale'],premium_match['sale']]:
+        if (salep is None) or math.isnan(salep):
+            sales.append('None')
+        else:
+            sales.append(salep)
+
+    heads = ['Match!!!','Frugal','Premium']
+    children = []
+    for i, (image_filename,head,brand,name,price,sale,url) in enumerate(zip(similar_image_paths,heads,brands,names,prices,sales,urls)):
+        encoded_image = base64.b64encode(open(image_filename, 'rb').read())
+        children.append(display_encoded_image_and_metadata(encoded_image,head,brand,name,price,sale,url))
+    return children
+
+              #[Input('interactive-image', 'children'),
+#@app.callback(Output('output-similar-items', 'children'),
+#              [Input('output-image-upload', 'children'),
+#               Input('button-undo','n_clicks'),
+#               Input('button-redo-search','n_clicks')],
+#              [State('interactive-image', 'selectedData')]
+#                  )
+#def update_selection(img, undo_clicks,redo_clicks,selectedData):
+#    print("\n\n\n\n\n\n probably able to select data \n\n\n\n\n\n\n")
+#    return
+
+
+#image_filename = 'my-image.png' # replace with your own image
+
+external_css = [
+    # Normalize the CSS
+    "https://cdnjs.cloudflare.com/ajax/libs/normalize/7.0.0/normalize.min.css",
+    # Fonts
+    "https://fonts.googleapis.com/css?family=Open+Sans|Roboto"
+    "https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css",
+    # For production
+    "https://cdn.rawgit.com/xhlulu/0acba79000a3fd1e6f552ed82edb8a64/raw/dash_template.css",
+    # Custom CSS
+    "https://cdn.rawgit.com/xhlulu/dash-image-processing/1d2ec55e/custom_styles.css",
+]
+
+for css in external_css:
+    app.css.append_css({"external_url": css})
+#app.css.append_css({
+#    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+#})
+
+if __name__ == '__main__':
+    app.run_server(debug=False)
