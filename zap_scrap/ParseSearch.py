@@ -19,8 +19,6 @@ class ParseSearch(object):
     Args:
         html: html from product URL
         url: product URL
-    Attributes:
-        asdf    
             
     """
 

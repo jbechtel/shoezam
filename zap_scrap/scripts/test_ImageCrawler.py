@@ -1,6 +1,6 @@
 import zap_scrap as zs
 
-for i in range(0,1):
+for i in range(1,24):
     page = i
     subcategory = 'oxfords'
     db_filename = subcategory + '_p{}.json'.format(page)

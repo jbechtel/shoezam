@@ -8,6 +8,7 @@ from keras.utils.vis_utils import plot_model
 import json
 import os
 import time
+import PIL
 from keras import backend as K
 
 from keras.applications.vgg16 import decode_predictions
@@ -219,6 +220,53 @@ def compile_data_table_without_features(database_path,meta_save_path,frnt=False)
     #big_df = pd.concat([keys_df,subcategories_df,brands_df,names_df,msrps_df,sales_df,like_keys_df,features_df])
     big_df = pd.concat([dict_df,like_keys_df],axis=1)
     big_df.to_csv(meta_save_path)
+def calc_feature_vectors_from_df(slimdf):
+    count = 1
+    product_number = 1
+    product_images = []
+    feature_vec_batch_list = []
+    dict_list = []
+    feature_vecs = []
+    for i,row in slimdf.iterrows():
+        product_images.append(load_image(row['image_path']))
+        if product_number % batch_size == 0:
+            t0 = time.time()
+            input_tensor = np.concatenate(product_images) 
+            t1 = time.time()
+            total = t1-t0
+            print('numpy concat time: {}'.format(total))
+            t0 = time.time()
+            print('model input shape : {}'.format(input_tensor.shape))
+            model_output = feature_extraction(base_model,'fc2',input_tensor)
+            t1 = time.time()
+            total = t1-t0
+            print('model execution time: {}'.format(total))
+            print('model output shape : {}'.format(model_output.shape))
+            feature_vec_batch_list.append(model_output)
+        if product_number % batch_size == 0:
+            product_images = []
+        product_number += 1
+
+    t0 = time.time()
+    input_tensor = np.concatenate(product_images) 
+    t1 = time.time()
+    total = t1-t0
+    print('numpy concat time: {}'.format(total))
+    t0 = time.time()
+    print('model input shape : {}'.format(input_tensor.shape))
+    model_output = feature_extraction(base_model,'fc2',input_tensor)
+    t1 = time.time()
+    total = t1-t0
+    print('model execution time: {}'.format(total))
+    print('model output shape : {}'.format(model_output.shape))
+    feature_vec_batch_list.append(model_output)
+      
+    K.clear_session()
+    features = np.concatenate(feature_vec_batch_list)
+    print('features.shape : {}'.format(features.shape))
+    features_df = pd.DataFrame(data=features)
+    #features_df.to_csv(features_save_path)
+    return features_df
 def compile_features_table(base_model,layer_name, database_path,batch_size,features_save_path,frnt=False):
     with open(database_path) as fp:
         db_json = json.load(fp)
@@ -327,15 +375,94 @@ def check_broken_images(database_path):
     print('total existing images : {}'.format(count))
     print('successfully loaded images: {}'.format(success))
 
+def rand_flip_mask(black_mask,p):
+    white_mask = black_mask.copy()
+    for i in range(black_mask.shape[0]):
+        for j in range(black_mask.shape[1]):
+            if black_mask[i,j]==True:
+                if np.random.uniform(low=0.0, high=1.0, size=None)<p:
+                    white_mask[i,j]=False
+    return white_mask
+
+
+def change_white_to_color(color_tuple, data,p=0.5):
+    #r1, g1, b1 = 255,255,255 # Original value
+    min_c = 240
+    r1,g1,b1 = min_c, min_c, min_c
+    randf = np.random.uniform(low=0.0, high=1.0, size=None)
+
+    (r2, g2, b2) = color_tuple # Value that we want to replace it with
+    (rw, gw, bw) = (255,255,255) # Value that we want to replace it with
+        
+    
+    red, green, blue = data[:,:,0], data[:,:,1], data[:,:,2]
+    #mask = (red == r1) & (green == g1) & (blue == b1)
+    black_mask = (red >= r1) & (green >= g1) & (blue >= b1)
+    white_mask = rand_flip_mask(black_mask,p)
+    #print("black_mask.shape: {}".format(black_mask.shape))
+    #print("black_mask:\n{}".format(black_mask))
+    #print("black_mask:\n{}".format(black_mask))
+    data[:,:,:3][black_mask] = [r2, g2, b2]
+    data[:,:,:3][white_mask] = [rw, gw, bw]
+
+    return data
+    #im = Image.fromarray(data)
+    #im.save('fig1_modified.png')
+
+def prepare_augmented_images_from_df(slimdf):
+    black_rows_list = []
+    pepper_rows_list = []
+    for index, row in slimdf.iterrows():
+        print('INDEX: {}'.format(index))
+        rowdict = row.to_dict()
+        # dealing with 4 views: pair, top,left, right
+        # for each image create a black backround
+        # later expand to salt and pepper.
+        
+        # BLACK IMAGE
+        black_dict = rowdict.copy()
+        black_dict['view'] = rowdict['view'] + '_black'
+        black_dict['image_path'] = rowdict['image_path'].split('.jpg')[0] + '_black.jpg'
+        sim1_PATH = rowdict['image_path']
+        #print('sim1_PATH: {}'.format(sim1_PATH))
+        im_pil = PIL.Image.open(sim1_PATH)
+        if im_pil.mode != 'RGB':
+            print('im_pil.mode: {}'.format(im_pil.mode))
+            im_pil = im_pil.convert('RGB')
+        img_array = np.array(im_pil)
+        black_img_array = change_white_to_color((0,0,0),img_array,p=1.0)
+        black_im_pil = PIL.Image.fromarray(black_img_array)
+        black_im_pil.save(black_dict['image_path'])
+        black_rows_list.append(black_dict)
+        # END BLACK
+
+        # PEPPER IMAGE
+        #im_pil = im_pil.rotate(0,expand=True)
+        pepper_dict = rowdict.copy()
+        pepper_dict['view'] = rowdict['view'] + '_pepper'
+        pepper_dict['image_path'] = rowdict['image_path'].split('.jpg')[0] + '_pepper.jpg'
+        sim1_PATH = rowdict['image_path']
+        #print('sim1_PATH: {}'.format(sim1_PATH))
+        im_pil = PIL.Image.open(sim1_PATH)
+        if im_pil.mode != 'RGB':
+            print('im_pil.mode: {}'.format(im_pil.mode))
+            im_pil = im_pil.convert('RGB')
+        img_array = np.array(im_pil)
+        pepper_img_array = change_white_to_color((0,0,0),img_array,p=0.5)
+        pepper_im_pil = PIL.Image.fromarray(pepper_img_array)
+        pepper_im_pil.save(pepper_dict['image_path'])
+        pepper_rows_list.append(pepper_dict)
+
+
+    slim_df_black = pd.DataFrame(black_rows_list) 
+    slim_df_pepper = pd.DataFrame(pepper_rows_list) 
+    return slim_df_black,slim_df_pepper
                 
 
     #df = pd.DataFrame()
 
 if __name__ == "__main__":
     
-    base_model = VGG19(weights='imagenet')
-    print(base_model.summary())
-    layer_name = 'fc2'
     #layer_name = 'fc1'
 
 
@@ -350,10 +477,19 @@ if __name__ == "__main__":
     subcategory = 'oxfords_frnt'
     subcategory = 'boots_frnt'
     subcategory = 'loafers_frnt'
+    subcategory = 'no_sneakers_augment'
+    subcategory = 'boots_augment'
+    subcategory = 'boats_aug_calc'
+    subcategory = 'boats_pepper_calc'
+    subcategory = 'oxfords_black_calc'
+    subcategory = 'sneakers'
     #subcategory = 'oxfords'
     #subcategory = 'boats'
     #subcategory = 'fail'
     if subcategory=='oxfords':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
         oxford_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/oxfords_db.json'
         #check_broken_images(oxford_db)    
 
@@ -366,6 +502,9 @@ if __name__ == "__main__":
         combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
 
     if subcategory=='boots':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
         boots_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/boots_db.json'
         #check_broken_images(oxford_db)    
 
@@ -377,6 +516,9 @@ if __name__ == "__main__":
         full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
         combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
     if subcategory=='boats_frnt':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
         boats_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/boats_frnt_db.json'
         #check_broken_images(oxford_db)    
 
@@ -388,6 +530,9 @@ if __name__ == "__main__":
         full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
         combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
     if subcategory=='boots_frnt':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
         boats_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/boots_frnt_db.json'
         #check_broken_images(oxford_db)    
 
@@ -399,6 +544,9 @@ if __name__ == "__main__":
         full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
         combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
     if subcategory=='oxfords_frnt':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
         boats_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/oxfords_frnt_db.json'
         #check_broken_images(oxford_db)    
 
@@ -410,6 +558,9 @@ if __name__ == "__main__":
         full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
         combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
     if subcategory=='loafers_frnt':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
         boats_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/loafers_frnt_db.json'
         #check_broken_images(oxford_db)    
 
@@ -421,6 +572,9 @@ if __name__ == "__main__":
         full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
         combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
     if subcategory=='boats':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
         boats_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/boats_db.json'
         #check_broken_images(oxford_db)    
 
@@ -432,14 +586,108 @@ if __name__ == "__main__":
         full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
         combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
     if subcategory=='sneakers':
+        #base_model = VGG19(weights='imagenet')
+        #print(base_model.summary())
+        #layer_name = 'fc2'
         sneakers_db = '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/databases/sneakers_db.json'
         #check_broken_images(oxford_db)    
 
         meta_save_path = '{}_data_frame_no_features.csv'.format(subcategory)
         batch_size = 40
         compile_data_table_without_features(sneakers_db,meta_save_path)
-        features_save_path = '{}_data_features_{}.csv'.format(subcategory,layer_name)
-        compile_features_table(base_model,layer_name,sneakers_db,batch_size,features_save_path)
-        full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
-        combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
+        #features_save_path = '{}_data_features_{}.csv'.format(subcategory,layer_name)
+        #compile_features_table(base_model,layer_name,sneakers_db,batch_size,features_save_path)
+        #full_save_path = '{}_full_data_{}.csv'.format(subcategory,layer_name)
+        #combine_meta_with_features(meta_save_path,features_save_path,full_save_path)
+
+    if subcategory=='boats_augment':
+        #base_model = VGG19(weights='imagenet')
+        #print(base_model.summary())
+        #layer_name = 'fc2'
+        slimdf = pd.read_csv('/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_df_boats.csv')
+        slim_df_black, slim_df_pepper = prepare_augmented_images_from_df(slimdf)
+        slim_df_black.to_csv('slim_{}_df_boats.csv'.format('black'))
+        slim_df_pepper.to_csv('slim_{}_df_boats.csv'.format('pepper'))
+    if subcategory=='oxfords_augment':
+        #base_model = VGG19(weights='imagenet')
+        #print(base_model.summary())
+        #layer_name = 'fc2'
+        slimdf = pd.read_csv('/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_df_oxfords.csv')
+        slim_df_black, slim_df_pepper = prepare_augmented_images_from_df(slimdf)
+        slim_df_black.to_csv('slim_{}_df_oxfords.csv'.format('black'))
+        slim_df_pepper.to_csv('slim_{}_df_oxfords.csv'.format('pepper'))
+    if subcategory=='boots_augment':
+        #base_model = VGG19(weights='imagenet')
+        #print(base_model.summary())
+        #layer_name = 'fc2'
+        slimdf = pd.read_csv('/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_df_boots.csv')
+        slim_df_black, slim_df_pepper = prepare_augmented_images_from_df(slimdf)
+        slim_df_black.to_csv('slim_{}_df_boots.csv'.format('black'))
+        slim_df_pepper.to_csv('slim_{}_df_boots.csv'.format('pepper'))
+
+    if subcategory=='boats_black_calc':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
+        batch_size = 200
+        df_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_black_df_boats.csv'
+        slimdf = pd.read_csv(df_path,index_col=0)
+        slim_features = calc_feature_vectors_from_df(slimdf)
+        slim_features_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_black_features_boats.csv'
+        slim_features.to_csv(slim_features_path)
+
+        #slim_df_black.to_csv('slim_{}_df_boats.csv'.format('black'))
+        #slim_df_pepper.to_csv('slim_{}_df_boats.csv'.format('pepper'))
+
+    if subcategory=='boats_pepper_calc':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
+        batch_size = 200
+        df_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_pepper_df_boats.csv'
+        slimdf = pd.read_csv(df_path,index_col=0)
+        slim_features = calc_feature_vectors_from_df(slimdf)
+        slim_features_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_pepper_features_boats.csv'
+        slim_features.to_csv(slim_features_path)
+    if subcategory=='boots_black_calc':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
+        batch_size = 200
+        df_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_black_df_boots.csv'
+        slimdf = pd.read_csv(df_path,index_col=0)
+        slim_features = calc_feature_vectors_from_df(slimdf)
+        slim_features_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_black_features_boots.csv'
+        slim_features.to_csv(slim_features_path)
+    if subcategory=='boots_pepper_calc':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
+        batch_size = 200
+        df_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_pepper_df_boots.csv'
+        slimdf = pd.read_csv(df_path,index_col=0)
+        slim_features = calc_feature_vectors_from_df(slimdf)
+        slim_features_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_pepper_features_boots.csv'
+        slim_features.to_csv(slim_features_path)
+    if subcategory=='oxfords_black_calc':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
+        batch_size = 200
+        df_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_black_df_oxfords.csv'
+        slimdf = pd.read_csv(df_path,index_col=0)
+        slim_features = calc_feature_vectors_from_df(slimdf)
+        slim_features_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_black_features_oxfords.csv'
+        slim_features.to_csv(slim_features_path)
+    if subcategory=='oxfords_pepper_calc':
+        base_model = VGG19(weights='imagenet')
+        print(base_model.summary())
+        layer_name = 'fc2'
+        batch_size = 200
+        df_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_pepper_df_oxfords.csv'
+        slimdf = pd.read_csv(df_path,index_col=0)
+        slim_features = calc_feature_vectors_from_df(slimdf)
+        slim_features_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/slim_pepper_features_oxfords.csv'
+        slim_features.to_csv(slim_features_path)
+
 

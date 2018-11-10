@@ -3,7 +3,6 @@ import json
 import os
 
 def get_all_jsons(category):
-    #all_json_paths = glob.glob( os.path.join('/Users/bechtel/Work/Insight/shoezam/zap_scrap/data/', '{}_*.json'.format(category)) )
     all_json_paths = glob.glob( './data/{}_*.json'.format(category) )
     print(all_json_paths)
     return all_json_paths
@@ -19,6 +18,7 @@ def compile_database(save_dir, category,frnt=False):
     database = dict()
     all_json_paths = get_all_jsons(category)
     count = 0
+    cur_dir = os.getcwd()
     for filename in all_json_paths:
         with open(filename) as f:
             tmp_json = json.load(f)
@@ -32,15 +32,15 @@ def compile_database(save_dir, category,frnt=False):
                     images_exist = True
                     for img_number, image_urls in enumerate(value['image_urls']):
                         if category=='oxfords':
-                            image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                            image_path =  cur_dir + '/images/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                         elif category=='boots':
-                            image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_boots/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                            image_path =  cur_dir + '/images_boots/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                         elif category=='boats':
-                            image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_boats/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                            image_path =  cur_dir + '/images_boats/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                         elif category=='sneakers':
-                            image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_sneakers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                            image_path =  cur_dir + '/images_sneakers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                         elif category=='loafers':
-                            image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_loafers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                            image_path =  cur_dir + '/images_loafers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                         if not os.path.exists(image_path):
                             images_exist = False
                     like_products_exist = True
@@ -48,8 +48,8 @@ def compile_database(save_dir, category,frnt=False):
                         like_products_exist = False
                     elif value['like_products'] is None:
                         like_products_exist = False
-                    elif len(list(value['like_products']))<4:
-                        like_products_exist = False
+                    #elif len(list(value['like_products']))<4:
+                    #    like_products_exist = False
 
                     if images_exist and like_products_exist:
 
@@ -59,15 +59,15 @@ def compile_database(save_dir, category,frnt=False):
                         image_paths = []
                         for img_number,image in enumerate(database[new_key]['image_urls']):
                             if category=='oxfords':
-                                image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                                image_path =  cur_dir + '/images/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                             elif category=='boots':
-                                image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_boots/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                                image_path =  cur_dir + '/images_boots/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                             elif category=='boats':
-                                image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_boats/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                                image_path =  cur_dir + '/images_boats/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                             elif category=='sneakers':
-                                image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_sneakers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                                image_path =  cur_dir + '/images_sneakers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                             elif category=='loafers':
-                                image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_loafers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                                image_path =  cur_dir + '/images_loafers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
 
                             image_paths.append(image_path)
                         like_product_keys = [None]*4
@@ -101,13 +101,13 @@ def frnt_compile_database(save_dir,category):
                 new_url = value['image_urls'][0]
                 img_number = 4
                 if subcategory=='oxfords':
-                    image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                    image_path =  cur_dir + '/images/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                 elif subcategory=='boots':
-                    image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_boots/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                    image_path =  cur_dir + '/images_boots/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                 elif subcategory=='boats':
-                    image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_boats/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                    image_path =  cur_dir + '/images_boats/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
                 elif subcategory=='sneakers':
-                    image_path =  '/Users/bechtel/Work/Insight/shoezam/zap_scrap/scripts/images_sneakers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
+                    image_path =  cur_dir + '/images_sneakers/' + new_key + '/' + new_key + '_' + str(img_number) + '.jpg'
 
                 old_paths = database[new_key]['image_paths']
                 old_paths.append(image_path)

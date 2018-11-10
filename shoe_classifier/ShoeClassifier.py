@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 from keras.applications.vgg19 import VGG19
+from keras.models import load_model
+from keras.models import model_from_json
 import tensorflow as tf
 from keras.preprocessing import image
 from keras.applications.vgg19 import preprocess_input
@@ -22,7 +24,7 @@ _PIL_INTERPOLATION_METHODS = {
 }
 
 class ShoeClassifier(object):
-    def __init__(self,classifier='euclidean',subcategory='no_sneakers',layer_name='fc2',top_n=10):
+    def __init__(self,model='VGG',classifier='euclidean',subcategory='no_sneakers',layer_name='fc2',top_n=10):
 
         self.top_n = top_n
         self.subcategory = subcategory 
@@ -31,15 +33,28 @@ class ShoeClassifier(object):
         #    print("ERROR no keras model?")
         #else:
         #    self.layer_model = layer_model
-        self.layer_name = layer_name
-        self.base_model = VGG19(weights='imagenet')
-        self.layer_model = Model(inputs=self.base_model.input, outputs=self.base_model.get_layer(self.layer_name).output)
-        self.base_graph = tf.get_default_graph()
+        if model=='VGG':
+            self.layer_name = layer_name
+            self.base_model = VGG19(weights='imagenet')
+            self.layer_model = Model(inputs=self.base_model.input, outputs=self.base_model.get_layer(self.layer_name).output)
+            self.base_graph = tf.get_default_graph()
+            self.layer_name = layer_name
+        elif model=='custom':
+            run = 0
+            self.layer_name = 'dense_1'
+            json_file = open('/Users/bechtel/Work/Insight/shoezam/webapp/custom_model/model_T1_run_{}.json'.format(run), 'r')
+            loaded_model_json = json_file.read()
+            json_file.close()
+            self.base_model = model_from_json(loaded_model_json)
+            self.base_model.load_weights("/Users/bechtel/Work/Insight/shoezam/webapp/custom_model/weights_T1_run_{}.h5".format(run))
+            self.layer_model = Model(inputs=self.base_model.input, outputs=self.base_model.get_layer(self.layer_name).output)
+            self.base_graph = tf.get_default_graph()
+            print("Loaded model from disk")
+             
         #K.clear_session()
         #self.layer_model = Model(inputs=self.base_model.input, outputs=self.base_model.get_layer(self.layer_name).output)
         #print(self.base_model.summary())
-        self.layer_name = layer_name
-        if self.subcategory not in ['oxfords','boots','boats','sneakers','no_sneakers','frnt_no_sneakers']:
+        if self.subcategory not in ['oxfords','boots','boats','sneakers','no_sneakers','frnt_no_sneakers','binary']:
             print("In ShoeClassifier().__init__\n ERROR exiting, need to choose subcategory oxfords, boots, boats, or sneakers")
             K.clear_session()
             exit()
@@ -83,9 +98,21 @@ class ShoeClassifier(object):
             # new 
             if self.classifier in ['euclidean','cosine']:
                 oxf_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/frnt_features_fc2_data_oxfords_boats_boots.csv'
+        elif self.subcategory=='all_shoes':
+            odf_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/no_features_data_all_shoes.csv'
+            #oxfords_db = 'oxfords_data_frame_no_features.csv'
+            # new 
+            if self.classifier in ['euclidean','cosine']:
+                oxf_path = '/Users/bechtel/Work/Insight/shoezam/feature_extraction/features_fc2_data_all_shoes.csv'
+        elif self.subcategory=='binary':
+            odf_path = '/Users/bechtel/Work/Insight/shoezam/webapp/custom_model/binary_shoes_no_features.csv'
+            #oxfords_db = 'oxfords_data_frame_no_features.csv'
+            # new 
+            if self.classifier in ['euclidean','cosine']:
+                oxf_path = '/Users/bechtel/Work/Insight/shoezam/webapp/custom_model/binary_shoes_features.csv'
 
         self.oxf = pd.read_csv(oxf_path,index_col=0).values
-        self.odf = pd.read_csv(odf_path,index_col=0)
+        self.odf = pd.read_csv(odf_path,index_col=0).reset_index(drop=True,inplace=False)
         self.odf.msrp = self.odf.msrp.replace('[\$,]', '', regex=True).astype(float)
         self.odf.sale = self.odf.sale.replace('[\$,]', '', regex=True).astype(float)
 

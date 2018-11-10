@@ -36,7 +36,7 @@ IMAGE_PIL_PLACEHOLDER = Image.open(cwd + '/image_test.jpg')
 app = dash.Dash()
 
 #cnn = ShoeClassifier(subcategory='oxfords')
-cnn = ShoeClassifier(subcategory='no_sneakers')
+cnn = ShoeClassifier(subcategory='binary',model='custom')
 #cnn = ShoeClassifier(subcategory='frnt_no_sneakers')
 
 app.scripts.config.serve_locally = True

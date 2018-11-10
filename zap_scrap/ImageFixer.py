@@ -16,7 +16,7 @@ class ImageFixer(object):
         self.check_broken_images_and_rescrape(self.img_dir)
 
     def check_broken_images_and_rescrape(self,img_dir):
-
+    
         total_paths = 1
         count = 1
         success = 1
@@ -42,11 +42,10 @@ class ImageFixer(object):
         print('successfully loaded images: {}'.format(success))
 
 
-#def plot_VGGnet(model):
-#    plot_model(model, to_file='vgg.png')
 
 def load_image(img_path):
-    #img_path = 'elephant.jpg'
+    """ Attempts to load image given a path. Returns False
+        if imsage is broken """
     try:
         img = Image.open(img_path)
         print("Success")
