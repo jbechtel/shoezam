@@ -2,7 +2,7 @@
 
 This is the project repo for Shoezam a shoe identification and recommendation app at [shoezam.online](shoezam.online). 
 
-![Shoezam Demo](https://github.com/jbechtel/shoezam/blob/master/movies/out.mov "Shoezam Demo")
+![](https://github.com/jbechtel/shoezam/blob/master/movies/out.gif "Shoezam Demo")
 
 The project consists of three parts: 
 
