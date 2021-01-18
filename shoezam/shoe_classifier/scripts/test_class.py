@@ -1,4 +1,4 @@
-from shoe_classifier import ShoeClassifier
+from shoezam.shoe_classifier import ShoeClassifier
 
 cnn = ShoeClassifier()
 image_path = "/Users/bechtel/Work/Insight/shoezam/webapp/image_test.jpg"

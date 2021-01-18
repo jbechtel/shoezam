@@ -1,4 +1,4 @@
-import zap_scrap as zs
+from shoezam import zap_scrap as zs
 
 for i in range(1,24):
     page = i

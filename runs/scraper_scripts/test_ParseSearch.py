@@ -1,5 +1,5 @@
 #from zap_scrap import ParseProduct.ParseProduct
-import zap_scrap as zs
+from shoezam import zap_scrap as zs
 
 #url = "https://www.zappos.com/men-sneakers-athletic-shoes/CK_XARC81wHAAQLiAgMBAhg.zso?s=goliveRecentSalesStyle/desc/&p=" + str(i)
 # url = "https://www.zappos.com/men-sneakers-athletic-shoes/CK_XARC81wHAAQLiAgMBAhg.zso?s=goliveRecentSalesStyle/desc"
