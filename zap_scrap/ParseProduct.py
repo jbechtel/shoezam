@@ -67,13 +67,14 @@ class ParseProduct(object):
         #options.add_argument('headless')
         #driver = webdriver.Firefox(firefox_profile=profile,firefox_options=options)
 
-        # parseSearch
+        # parseSearch, times out after 5 items
         options = Options()
         options.add_argument('--headless')
         driver = webdriver.Firefox(firefox_options=options)
         #
 
         # The following works however Zappos blocks tor????
+        # this does not work
         #profile=webdriver.FirefoxProfile()
         #profile.set_preference('network.proxy.type', 1)
         #profile.set_preference('network.proxy.socks', '127.0.0.1')
@@ -82,19 +83,20 @@ class ParseProduct(object):
         # END FIREFOX WITH TOR
         # OP
 
-        # CHROME with tor? 
-        #options = webdriver.ChromeOptions()
-        #options.add_argument('headless')
-        #driver = webdriver.Chrome(chrome_options=options)
+        # CHROME, times out after 5 items
+        options = webdriver.ChromeOptions()
+        options.add_argument('headless')
+        driver = webdriver.Chrome(chrome_options=options)
         # END CHROME
 
 
         driver.get(url)
         self.like_products_exist = True
+        wait_time=randint(4,8)
         try:
-            WebDriverWait(driver, randint(1,3)).until(EC.presence_of_element_located((By.ID, 'alsoLike')))
+            WebDriverWait(driver, wait_time).until(EC.presence_of_element_located((By.ID, 'alsoLike')))
         except TimeoutException:
-            print('Page timed out after 3 secs.')
+            print(f'Page timed out after {wait_time} secs.')
             self.like_products_exist = False
         self.soup = BeautifulSoup(driver.page_source, 'html.parser')
         driver.quit()
@@ -183,8 +185,10 @@ class ParseProduct(object):
             print("self.iimage_urls is not None")
             return self.image_urls
         else:
-            print("Is else")
-            thumbs = self.soup.find('body',class_="activeMain").find('div',attrs={'id':'thumbnailsList'})
+            print("In else")
+            print(f'self.soup: {self.soup.prettify()}')
+            thumbs = self.soup.find('body',class_="activeMain jsEnabled").find('ul',attrs={'id':'thumbnailsList'})
+            print(f'thumbs: {thumbs.prettify()}')
             small_urls = []
 
             pair = thumbs.find('img',attrs={'alt':'PAIR'})

@@ -29,6 +29,7 @@ class ParseSearch(object):
             self.subcategory = subcategory
         product_page = get_page(url)
         self.soup = BeautifulSoup(product_page, 'html.parser') 
+        # print(self.soup)
 
         #driver = webdriver.Chrome()
         #driver.get(url)
@@ -50,35 +51,78 @@ class ParseSearch(object):
         else:
             self.product_list = []
             outer = self.soup.find("div",attrs={"class":"searchPage"})
-            #inner = outer.find("div")
             for i,product in enumerate(outer.find_all("article")):
-                name_soup = product.find('p',attrs={'itemprop':'name'}) 
+                print(product.prettify())
+                # name_soup = product.find('p',attrs={'itemprop':'name'}) 
+                # name_soup = product.find('dl',attrs={'itemprop':'name'}) 
+                name_soup = product.find('dd', attrs={'itemprop': 'name'}) 
+                print(f'\n\ndd: {name_soup.prettify()}')
                 name = name_soup.text
-                #print("NAME: {}".format(name))
+                print("NAME: {}".format(name))
+                print('\n\n')
                 #print('\n product #{}'.format(i))
                 #all_text = [t.text for t in product.find_all('p')
+                color_soup = product.find('dd', attrs={'itemprop': 'color'}) 
+                print(f'\n\ndd: {color_soup.prettify()}')
+                color = color_soup.text
+                print("COLOR: {}".format(color))
+                print('\n\n')
+                brand_soup = product.find('dd', attrs={'itemprop': 'brand'}) 
+                print(f'\n\ndd: {brand_soup.prettify()}')
+                brand = brand_soup.text
+                print("BRAND: {}".format(brand))
+                print('\n\n')
+
+                price_soup = product.find('dd', attrs={'itemprop': 'offers'}) 
+                print(f'\n\ndd: {price_soup.prettify()}')
+                price_info = price_soup.text.split('MSRP: ')
+                print("PRICE: {}".format(price_info))
+                print('\n\n')
+
                 msrp = None
                 sale = None
-                for t in product.find_all('p'):
-                    ttext = t.text
-                    #print(t.text)
-                    if (len(ttext)>0) and (ttext[0]=='$'):
-                        splittext = ttext.split('MSRP: ')
-                        #print(splittext)
-                        if len(splittext)==2:
-                            sale=splittext[0]
-                            msrp=splittext[1]
-                        elif len(splittext)==1:
-                            msrp=splittext[0]
-                            
-                #print("\nMSRP={}\nSALE={}\n".format(msrp,sale))
+                # pi = [t.text for t in product.find_all('dd')]
+                
+                product_info = {'brand': brand, 'name': name, 'color': color}
+                # price_info = pi[3].split('MSRP: ')
+                if len(price_info)==1:
+                    msrp=float(price_info[0].strip("$").replace(",",""))
+                    product_info['msrp']=msrp
+                elif len(price_info)==2:
+                    msrp=float(price_info[1].strip("$").replace(",",""))
+                    sale=float(price_info[0].strip("$").replace(",",""))
+                    product_info['msrp']=msrp
+                    product_info['sale']=sale
+                else:
+                    print('WARNING')
+
+                print(product_info)
+
+                # for t in product.find_all('dd'):
+                #     ttext = t.text
+                #     print(t.text)
+
+                #     if (len(ttext)>0) and ('$' in ttext):
+                #         splittext = ttext.split('MSRP: ')
+                #         print(splittext)
+                #         if len(splittext)==2:
+                #             sale=splittext[0]
+                #             msrp=splittext[1]
+                #         elif len(splittext)==1:
+                #             msrp=splittext[0]
+                #             
+
+                print("\nMSRP={}\nSALE={}\n".format(msrp,sale))
                 url_end = product.find("a",attrs={"itemprop":"url"}).attrs['href']
-                #print('\n product url' + '\n' + url_end)
                 product_url = "https://www.zappos.com" + url_end
+                print('\n product url' + '\n' + product_url)
                 split_url = url_end.split('/') 
-                product_sku = split_url[4]
-                product_color = split_url[6]
-                #print('SKU: {}\nColor: {}\n'.format(product_sku,product_color))
+                product_sku = split_url[split_url.index("product")+1]
+                product_color = split_url[split_url.index("color")+1]
+
+                # product_sku = split_url[6]
+                # product_color = split_url[8]
+                print('SKU: {}\nColor: {}\n'.format(product_sku,product_color))
                 product_details = [ product_url, msrp, sale ] 
                 self.product_list.append(product_details)
                 #skus_id.append(product_sku)
@@ -105,6 +149,7 @@ class ParseSearch(object):
             #for product in self.product_list[0:5]:
             for count, product in enumerate(self.product_list):
                 print("\nProduct #{}".format(count))
+                print(product)
                 self.product_dict[product[0]] = dict()
                 self.product_dict[product[0]]['msrp'] = product[1]
                 self.product_dict[product[0]]['sale'] = product[2]

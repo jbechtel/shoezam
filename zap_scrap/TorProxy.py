@@ -34,7 +34,8 @@ def renew_connection():
         controller.signal(Signal.NEWNYM)
 ## Make a request through the Tor connection
 ## IP visible through Tor
-#test_ip_with_tor()
+test_ip_without_tor()
+# test_ip_with_tor()
 ## Above should print an IP different than your public IP
 #
 ## Following prints your normal public IP
