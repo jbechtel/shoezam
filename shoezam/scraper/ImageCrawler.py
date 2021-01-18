@@ -1,7 +1,7 @@
 import json
 import os
-from .TorProxy import *
-from .dataIO import *
+from .TorProxy import renew_connection
+from .dataIO import url2key
 class ImageCrawler(object):
     """ Given a json built from ParseSearch this 
         will using rotating IPs from tor to download images

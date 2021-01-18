@@ -1,8 +1,7 @@
-from __future__ import absolute_import
-from bs4 import BeautifulSoup
-import requests
-import os
-from .Misc import get_page
+# from bs4 import BeautifulSoup
+# import requests
+# import os
+# from .Misc import get_page
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,9 +9,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from random import randint
-import socks
-import socket
-import stem.process
+# import socks
+# import socket
+# import stem.process
 
 from selenium.webdriver.firefox.options import Options
 class ParseProduct(object):
@@ -67,10 +66,12 @@ class ParseProduct(object):
         #options.add_argument('headless')
         #driver = webdriver.Firefox(firefox_profile=profile,firefox_options=options)
 
+        # can work
         # parseSearch, times out after 5 items
-        options = Options()
-        options.add_argument('--headless')
-        driver = webdriver.Firefox(firefox_options=options)
+        # options = Options()
+        # options.add_argument('--headless')
+        # driver = webdriver.Firefox(firefox_options=options)
+
         #
 
         # The following works however Zappos blocks tor????
