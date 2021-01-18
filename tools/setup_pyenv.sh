@@ -10,6 +10,6 @@ echo "INSTALL requirements.txt"
 pip install -r requirements.txt
 echo "INSTALL requirements-dev.txt"
 pip install -r requirements-dev.txt
-echo "INSTALL vibsym"
+echo "INSTALL ${VENV_NAME}"
 pip install -e .
 
