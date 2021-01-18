@@ -8,6 +8,7 @@ from shoezam.scraper import ParseSearch
 # url = "https://www.zappos.com/men-oxfords/CK_XARC31wHAAQLiAgMBAhg.zso?p=" + str(page)
 page = 0
 subcategory = 'oxfords'
+
 url = "https://www.zappos.com/men-oxfords/.zso?t=men%20oxfords&p=" + str(page)
 search_page = ParseSearch(url, page, subcategory)
 search_page.print_product_list()
