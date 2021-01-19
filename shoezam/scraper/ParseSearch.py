@@ -19,14 +19,17 @@ import json
 from dataclasses import dataclass
 
 import logging
+
 logger = logging.getLogger(__name__)
 
-_SEARCH_PAGE_BASE_URL = "https://www.zappos.com/{}-{}/.zso?t=men%20{}&p={}" # .format(Gender, ShoeType, ShoeType, page_num)
+_SEARCH_PAGE_BASE_URL = "https://www.zappos.com/{}-{}/.zso?t=men%20{}&p={}"  # .format(Gender, ShoeType, ShoeType, page_num)
+
 
 class Gender(Enum):
     MEN = 'men'
     WOMEN = 'women'
     KIDS = 'kids'
+
 
 class ShoeType(Enum):
     OXFORDS = 'oxfords'
@@ -35,8 +38,6 @@ class ShoeType(Enum):
 
 @attr.s
 class ProductDetails:
-    """ Keeps track of Product URL, msrp & sale prices
-    """
     url: str = attr.ib(validator=instance_of(str))
     sku: int = attr.ib(validator=instance_of(int))
     msrp: float = attr.ib(validator=instance_of(float))
@@ -51,15 +52,30 @@ class ProductDetails:
     styleID: int = attr.ib(validator=instance_of(int))
     sale: T.Optional[float] = attr.ib(validator=optional(instance_of(float)),
                                       default=None)
+
+
+@attr.s
+class ProductPage:
+    """ Keeps track of Product URL, msrp & sale prices
+    """
+    url: str = attr.ib(validator=instance_of(str))
     like_products_urls: T.Optional[T.List[str]] = attr.ib(validator=optional(
         deep_iterable(instance_of(str), instance_of(T.Sequence))), init=False,
         default=None)
     image_urls: T.Optional[T.List[str]] = attr.ib(validator=optional(
         deep_iterable(instance_of(str), instance_of(T.Sequence))), init=False,
         default=None)
+    soup: T.Optional[BeautifulSoup] = attr.ib(
+        validator=optional(instance_of(BeautifulSoup)), init=False,
+        default=None)
+
+    def _get_soup(self) -> BeautifulSoup:
+        if self.soup is None:
+            self.soup = self.get_product_page_soup(self.url)
+        return self.soup
 
     @staticmethod
-    def soup(url: str) -> BeautifulSoup:
+    def get_product_page_soup(url: str) -> BeautifulSoup:
         options = webdriver.ChromeOptions()
         options.add_argument('headless')
         driver = webdriver.Chrome(chrome_options=options)
@@ -77,11 +93,8 @@ class ProductDetails:
         assert soup.find('body', class_="activeMain") is not None, f'Bad link {url}'
         return soup
 
-
-
-    @classmethod
-    def from_url(cls, url: str) -> 'ProductDetails':
-        soup = ProductDetails.soup(url)
+    def get_product_details(self) -> ProductDetails:
+        soup = self._get_soup()
         price_data = soup.find(text=re.compile("originalPrice"))
         price_data = price_data.string.split('window.__INITIAL_STATE__ =')[1][0:-1]
         price_dict = json.loads(price_data)
@@ -93,7 +106,7 @@ class ProductDetails:
         detail_dict['sku'] = price_dict['pixelServer']['data']['product']['sku']
         detail_dict['styleID'] = price_dict['pixelServer']['data']['product']['styleId']
         detail_dict['price'] = price_dict['pixelServer']['data']['product']['price']
-        detail_dict['oprice'] = price_dict['pixelServer']['data']['product'].get('originalPrice',None)
+        detail_dict['oprice'] = price_dict['pixelServer']['data']['product'].get('originalPrice', None)
         detail_dict['name'] = price_dict['pixelServer']['data']['product']['name']
         detail_dict['brand'] = price_dict['pixelServer']['data']['product']['brand']
         detail_dict['category'] = price_dict['pixelServer']['data']['product']['category']
@@ -106,6 +119,7 @@ class ProductDetails:
                 detail_dict['style_price'] = style['price']
                 detail_dict['style_oprice'] = style['originalPrice']
                 break
+
         sale = float(detail_dict['style_price'].strip('$'))
         msrp = float(detail_dict['style_price'].strip('$'))
         category = detail_dict['category']
@@ -119,14 +133,25 @@ class ProductDetails:
         brandID = int(detail_dict['brandID'])
         sku = int(detail_dict['sku'])
 
-        if abs(sale-msrp) < 0.01:
+        if abs(sale - msrp) < 0.01:
             sale = None
 
         logger.debug(detail_dict)
-        return cls(url=url, sku=sku, msrp=msrp, sale=sale, category=category,
-                   subcategory=subcategory, brand=brand, name=name, color=color,
-                   colorID=colorID, styleID=styleID, productID=productID,
-                   brandID=brandID)
+        return ProductDetails(url=self.url, sku=sku, msrp=msrp, sale=sale,
+                              category=category,
+                              subcategory=subcategory, brand=brand, name=name,
+                              color=color,
+                              colorID=colorID, styleID=styleID,
+                              productID=productID,
+                              brandID=brandID)
+
+    def get_like_product_pages(self) -> T.List['ProductPage']:
+        """
+
+        :return:
+        """
+        soup = self._get_soup()
+        pass
 
 
 # class ParseProduct(object):
@@ -335,23 +360,16 @@ class SearchPage:
     def soup(self) -> BeautifulSoup:
         return BeautifulSoup(get_page(self.url), 'html.parser')
 
-    def parse_product_urls(self) -> T.List[str]:
+    def parse_product_pages(self) -> T.List[ProductPage]:
         soup = self.soup
         outer = soup.find("div", attrs={"class": "searchPage"})
-        product_urls = []
+        product_pages = []
         for i, product in enumerate(outer.find_all("article")):
             url_end = product.find("a", attrs={"itemprop": "url"}).attrs['href']
             product_url = "https://www.zappos.com" + url_end
             logger.debug(f'product url: {product_url}')
-            product_urls.append(product_url)
-        return product_urls
-
-    def parse_products(self) -> T.List[ProductDetails]:
-        return [ProductDetails.from_url(x) for x in self.parse_product_urls()]
-
-
-
-
+            product_pages.append(ProductPage(product_url))
+        return product_pages
 
 
 # class ParseSearch(object):
@@ -557,7 +575,7 @@ class SearchPage:
 #
 
 def gen_dict_extract(key: str, var: T.Dict):
-    if hasattr(var,'iteritems'):
+    if hasattr(var, 'iteritems'):
         for k, v in var.iteritems():
             if k == key:
                 yield v

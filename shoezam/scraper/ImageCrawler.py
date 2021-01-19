@@ -1,6 +1,6 @@
 import json
 import os
-from .TorProxy import renew_connection
+from .TorProxy import renew_connection, scrape
 from .dataIO import url2key
 class ImageCrawler(object):
     """ Given a json built from ParseSearch this 
