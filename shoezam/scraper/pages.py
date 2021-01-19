@@ -1,4 +1,3 @@
-from enum import Enum
 import re
 import attr
 from attr.validators import instance_of, optional, in_, deep_iterable
@@ -9,7 +8,8 @@ from bs4 import BeautifulSoup
 # import gevent
 from random import randint
 from .Misc import get_page
-from .ParseProduct import ParseProduct
+from .data_classes import ProductDetails
+from .enums import Gender, ShoeType
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -25,38 +25,9 @@ logger = logging.getLogger(__name__)
 _SEARCH_PAGE_BASE_URL = "https://www.zappos.com/{}-{}/.zso?t=men%20{}&p={}"  # .format(Gender, ShoeType, ShoeType, page_num)
 
 
-class Gender(Enum):
-    MEN = 'men'
-    WOMEN = 'women'
-    KIDS = 'kids'
-
-
-class ShoeType(Enum):
-    OXFORDS = 'oxfords'
-    SNEAKER = 'sneakers-athletic-shoes'
-
-
-@attr.s
-class ProductDetails:
-    url: str = attr.ib(validator=instance_of(str))
-    sku: int = attr.ib(validator=instance_of(int))
-    msrp: float = attr.ib(validator=instance_of(float))
-    category: str = attr.ib(validator=instance_of(str))
-    subcategory: str = attr.ib(validator=instance_of(str))
-    brand: str = attr.ib(validator=instance_of(str))
-    name: str = attr.ib(validator=instance_of(str))
-    color: str = attr.ib(validator=instance_of(str))
-    colorID: int = attr.ib(validator=instance_of(int))
-    brandID: int = attr.ib(validator=instance_of(int))
-    productID: int = attr.ib(validator=instance_of(int))
-    styleID: int = attr.ib(validator=instance_of(int))
-    sale: T.Optional[float] = attr.ib(validator=optional(instance_of(float)),
-                                      default=None)
-
-
 @attr.s
 class ProductPage:
-    """ Keeps track of Product URL, msrp & sale prices
+    """ Keeps track of Product URL
     """
     url: str = attr.ib(validator=instance_of(str))
     like_products_urls: T.Optional[T.List[str]] = attr.ib(validator=optional(

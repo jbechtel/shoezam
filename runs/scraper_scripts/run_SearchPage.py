@@ -1,4 +1,6 @@
-from shoezam.scraper.ParseSearch import SearchPage, Gender, ShoeType, ProductDetails, ProductPage
+from shoezam.scraper.pages import SearchPage, ProductPage
+from shoezam.scraper.enums import Gender, ShoeType
+from shoezam.scraper.data_classes import ProductDetails
 import logging
 
 logger = logging.getLogger('shoezam.scraper')
