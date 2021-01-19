@@ -17,6 +17,8 @@ product_details = page.get_product_details()
 logger.info(product_details)
 like_product_pages = page.get_like_product_pages()
 logger.info(like_product_pages)
+image_urls = page.get_image_urls()
+logger.info(image_urls)
 
 
 
