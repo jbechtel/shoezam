@@ -151,7 +151,18 @@ class ProductPage:
         :return:
         """
         soup = self._get_soup()
-        pass
+        also_like = soup.find('div', attrs={'id': 'alsoSimilar'}).find_all('article', attrs={'itemtype': 'http://schema.org/Product'})
+        logger.debug(f'also_like: {also_like}')
+        like_product_pages = []
+        for i, item in enumerate(also_like):
+            url_end = item.find(href=True)['href']
+            logger.debug(f'url_end: {url_end}')
+            clipped_end = url_end.split('?', 1)[0]
+            url = "https://www.zappos.com" + clipped_end
+            like_product = ProductPage(url=url)
+            like_product_pages.append(like_product)
+        return like_product_pages
+
 
 
 # class ParseProduct(object):

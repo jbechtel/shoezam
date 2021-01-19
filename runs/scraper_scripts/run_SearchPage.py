@@ -1,4 +1,4 @@
-from shoezam.scraper.ParseSearch import SearchPage, Gender, ShoeType, ProductDetails
+from shoezam.scraper.ParseSearch import SearchPage, Gender, ShoeType, ProductDetails, ProductPage
 import logging
 
 logger = logging.getLogger('shoezam.scraper')
@@ -12,8 +12,11 @@ page = 0
 
 url='https://www.zappos.com/p/trask-rogan-navy-italian-calfskin/product/9281120/color/435399'
 logger.info(url)
-product_details = ProductDetails.from_url(url=url)
+page = ProductPage(url=url)
+product_details = page.get_product_details()
 logger.info(product_details)
+like_product_pages = page.get_like_product_pages()
+logger.info(like_product_pages)
 
 
 
