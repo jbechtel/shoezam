@@ -1,23 +1,16 @@
 import dash
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
 #import dash_table_experiments as dt                                                                                                                                                           
 import dash_reusable_components as drc
 
 import math
-import datetime
-import json
-import pandas as pd
-import plotly
-import io
-import numpy as np
 from base64 import decodestring
 import base64
-import glob
 import os
 from PIL import Image
-from shoe_classifier import ShoeClassifier
+from shoezam.shoe_classifier import ShoeClassifier
 #IMAGE_STRING_PLACEHOLDER = drc.pil_to_b64(Image.open('image_test.jpg').copy(), enc_format='jpeg')
 cwd = os.getcwd()
 IMAGE_PIL_PLACEHOLDER = Image.open(cwd + '/image_test.jpg')
