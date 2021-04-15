@@ -6,3 +6,4 @@ requests==2.25.1
 selenium==3.141.0
 stem==1.8.0
 pandas==1.2.0
+torpy==1.1.5

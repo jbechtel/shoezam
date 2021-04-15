@@ -17,6 +17,8 @@ class ProductDetails:
     brandID: int = attr.ib(validator=instance_of(int))
     productID: int = attr.ib(validator=instance_of(int))
     styleID: int = attr.ib(validator=instance_of(int))
+    image_urls: T.Dict[str, str] = attr.ib()
+    like_product_urls: T.Sequence[str] = attr.ib()
     sale: T.Optional[float] = attr.ib(validator=optional(instance_of(float)),
                                       default=None)
 

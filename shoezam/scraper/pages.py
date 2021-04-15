@@ -22,6 +22,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+MIN_WAIT_TIME = 1
 _SEARCH_PAGE_BASE_URL = "https://www.zappos.com/{}-{}/.zso?t=men%20{}&p={}"  # .format(Gender, ShoeType, ShoeType, page_num)
 
 
@@ -51,12 +52,13 @@ class ProductPage:
         options.add_argument('headless')
         driver = webdriver.Chrome(chrome_options=options)
         driver.get(url)
-        wait_time = randint(4, 8)
+        wait_time = randint(MIN_WAIT_TIME, MIN_WAIT_TIME+3)
+        logger.info(f'wait_time: {wait_time}')
         try:
             WebDriverWait(driver, wait_time).until(
                 EC.presence_of_element_located((By.ID, 'alsoLike')))
         except TimeoutException as e:
-            print(f'Page timed out after {wait_time} secs.')
+            logger.info(f'Page timed out after {wait_time} secs.')
             raise e
         source = driver.page_source
         driver.quit()
@@ -108,13 +110,18 @@ class ProductPage:
             sale = None
 
         logger.debug(detail_dict)
+        like_product_urls = [page.url for page in self.get_like_product_pages()]
+        image_urls = self.get_image_urls()
         return ProductDetails(url=self.url, sku=sku, msrp=msrp, sale=sale,
                               category=category,
                               subcategory=subcategory, brand=brand, name=name,
                               color=color,
                               colorID=colorID, styleID=styleID,
                               productID=productID,
-                              brandID=brandID)
+                              brandID=brandID,
+                              like_product_urls=like_product_urls,
+                              image_urls=image_urls
+                              )
 
     def get_like_product_pages(self) -> T.List['ProductPage']:
         """
@@ -136,7 +143,7 @@ class ProductPage:
     def get_image_urls(self) -> T.Dict[str, str]:
         soup = self._get_soup()
         thumbs = soup.find('body', class_="activeMain jsEnabled").find('ul', attrs={'id': 'thumbnailsList'})
-        image_urls = {x['aria-label']: x['href'].replace('_SR106,78', '_SX480_') for x in thumbs.find_all(href=True)}
+        image_urls = {x['aria-label'].replace(' ', '_'): x['href'].replace('_SR106,78', '_SX480_') for x in thumbs.find_all(href=True)}
         logger.debug(image_urls)
         return image_urls
 
