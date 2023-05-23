@@ -2,7 +2,7 @@ numpy==1.19.5
 matplotlib==3.3.3
 attrs==20.3.0
 beautifulsoup4==4.9.3
-requests==2.25.1
+requests==2.31.0
 selenium==3.141.0
 stem==1.8.0
 pandas==1.2.0
